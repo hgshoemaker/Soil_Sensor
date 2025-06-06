@@ -1,4 +1,9 @@
 #include <Arduino.h>
+#include <BLEDevice.h>
+#include <BLEServer.h>
+#include <BLEUtils.h>
+#include <BLE2902.h>
+
 #define RS485_DE 21
 #define RS485_RE 22
 #define RXD2 18
