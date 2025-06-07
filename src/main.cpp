@@ -1,8 +1,8 @@
 #include <Arduino.h>
-#include <BLEDevice.h>
-#include <BLEServer.h>
-#include <BLEUtils.h>
-#include <BLE2902.h>
+#include <NimBLEDevice.h>
+#include <NimBLEServer.h>
+#include <NimBLEUtils.h>
+#include <NimBLE2904.h>
 
 #define RS485_DE 21
 #define RS485_RE 22
@@ -20,6 +20,18 @@ const byte sali[] = {0x01, 0x03, 0x00, 0x07, 0x00, 0x01, 0xe3, 0x5b};
 const byte tds[]  = {0x01, 0x03, 0x00, 0x08, 0x00, 0x01, 0xe0, 0x58};
 byte values[11];
 
+// BLE UUIDs for Nordic UART Service
+#define SERVICE_UUID        "6E400001-B5A3-F393-E0A9-E50E24DCCA9E"
+#define CHARACTERISTIC_UUID_TX "6E400003-B5A3-F393-E0A9-E50E24DCCA9E"
+
+BLECharacteristic *pTxCharacteristic;
+bool deviceConnected = false;
+
+class MyServerCallbacks: public BLEServerCallbacks {
+    void onConnect(BLEServer* pServer) { deviceConnected = true; }
+    void onDisconnect(BLEServer* pServer) { deviceConnected = false; }
+};
+
 void setup() {
   Serial.begin(115200);
   Serial1.begin(9600, SERIAL_8N1, RXD2, TXD2);
@@ -28,6 +40,43 @@ void setup() {
   digitalWrite(RS485_DE, LOW); // Receive mode
   digitalWrite(RS485_RE, LOW); // Receive mode
   delay(1000);
+
+  // BLE UART setup
+  BLEDevice::init("ESP32-SoilSensor");
+  BLEServer *pServer = BLEDevice::createServer();
+  pServer->setCallbacks(new MyServerCallbacks());
+  BLEService *pService = pServer->createService(SERVICE_UUID);
+  pTxCharacteristic = pService->createCharacteristic(
+    CHARACTERISTIC_UUID_TX,
+    NIMBLE_PROPERTY::NOTIFY
+  );
+  pTxCharacteristic->addDescriptor(new NimBLE2904());
+  pService->start();
+  BLEDevice::startAdvertising();
+  Serial.println("BLE UART started");
+}
+
+int readModbusValue(const byte* cmd, int scale = 1, int offset = 3) {
+  while (Serial1.available()) Serial1.read();
+  digitalWrite(RS485_DE, HIGH);
+  digitalWrite(RS485_RE, HIGH);
+  delay(10);
+  for (uint8_t i = 0; i < 8; i++) Serial1.write(cmd[i]);
+  Serial1.flush();
+  digitalWrite(RS485_DE, LOW);
+  digitalWrite(RS485_RE, LOW);
+
+  unsigned long start = millis();
+  int bytesRead = 0;
+  while ((bytesRead < 7) && (millis() - start < 500)) {
+    if (Serial1.available()) {
+      values[bytesRead++] = Serial1.read();
+    }
+  }
+  if (bytesRead == 7) {
+    return int(values[offset] << 8 | values[offset + 1]);
+  }
+  return -1; // error
 }
 
 void readSensor(const byte* cmd, const char* label, const char* unit, float scale = 1.0) {
