@@ -175,11 +175,12 @@ void readHumidityAndTemperature() {
 }
 
 void loop() {
-  // Arrays to hold 10 readings for each parameter
-  float humidityArr[10], temperatureArr[10];
-  // float conductivityArr[10], tdsArr[10], salinityArr[10];
-  // float phArr[10], nitroArr[10], phosArr[10], potaArr[10];
-
+  /*
+  // Arrays to hold 10 readings for each parameter */
+  float humidityArr[10], temperatureArr[10]; /*
+  float conductivityArr[10], tdsArr[10], salinityArr[10];
+  float phArr[10], nitroArr[10], phosArr[10], potaArr[10];
+*/
   // Take 10 readings
   float humidity = 0.0, temperature = 0.0;
   for (int i = 0; i < 10; i++) {
@@ -212,9 +213,10 @@ void loop() {
     }
     humidityArr[i] = humidity;
     temperatureArr[i] = temperature;
-
+  
+    
+/*
     // --- Conductivity ---
-    /*
     {
       while (Serial1.available()) Serial1.read();
       digitalWrite(RS485_DE, HIGH);
@@ -342,25 +344,24 @@ void loop() {
     }
 
     delay(100); // Small delay between readings
-    */
   }
-
+  
   // Calculate averages
-  float humiditySum = 0, temperatureSum = 0;
-  // float conductivitySum = 0, tdsSum = 0, salinitySum = 0;
-  // float phSum = 0, nitroSum = 0, phosSum = 0, potaSum = 0;
-  for (int i = 0; i < 10; i++) {
+  */float humiditySum = 0, temperatureSum = 0; /*
+  float conductivitySum = 0, tdsSum = 0, salinitySum = 0;
+  float phSum = 0, nitroSum = 0, phosSum = 0, potaSum = 0;
+  */for (int i = 0; i < 10; i++) {
     humiditySum += humidityArr[i];
     temperatureSum += temperatureArr[i];
-    // conductivitySum += conductivityArr[i];
-    // tdsSum += tdsArr[i];
-    // salinitySum += salinityArr[i];
-    // phSum += phArr[i];
-    // nitroSum += nitroArr[i];
-    // phosSum += phosArr[i];
-    // potaSum += potaArr[i];
+    /*conductivitySum += conductivityArr[i];
+    tdsSum += tdsArr[i];
+    salinitySum += salinityArr[i];
+    phSum += phArr[i];
+    nitroSum += nitroArr[i];
+    phosSum += phosArr[i];
+    potaSum += potaArr[i];
   }
-
+*/
   Serial.print("Humidity (avg) = ");
   Serial.print(humiditySum / 10.0, 1);
   Serial.println(" %");
@@ -368,7 +369,7 @@ void loop() {
   Serial.print("Temperature (avg) = ");
   Serial.print(temperatureSum / 10.0, 1);
   Serial.println(" deg.C");
-  /*
+/*
   Serial.print("Conductivity (avg) = ");
   Serial.print(conductivitySum / 10.0, 1);
   Serial.println(" uS/cm");
@@ -404,3 +405,6 @@ void loop() {
   Serial.println("Loop running...");
   delay(1000);
 }
+// This closing brace was missing in the original code snippet
+} // End of loop function
+// Add this closing brace to properly terminate the loop() function
