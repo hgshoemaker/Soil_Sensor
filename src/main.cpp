@@ -1,8 +1,8 @@
 #include <Arduino.h>
 #include <NimBLEDevice.h>
-#include <NimBLEServer.h>
-#include <NimBLEUtils.h>
-#include <NimBLE2904.h>
+//#include <NimBLEServer.h>
+//#include <NimBLEUtils.h>
+//#include <NimBLE2904.h>
 
 #define RS485_DE 21
 #define RS485_RE 22
@@ -24,16 +24,33 @@ byte values[11];
 #define SERVICE_UUID        "6E400001-B5A3-F393-E0A9-E50E24DCCA9E"
 #define CHARACTERISTIC_UUID_TX "6E400003-B5A3-F393-E0A9-E50E24DCCA9E"
 
-BLECharacteristic *pTxCharacteristic;
+NimBLECharacteristic *pTxCharacteristic;
 bool deviceConnected = false;
 
-class MyServerCallbacks: public BLEServerCallbacks {
-    void onConnect(BLEServer* pServer) { deviceConnected = true; }
-    void onDisconnect(BLEServer* pServer) { deviceConnected = false; }
+// Example: Send a notification with dummy data if a device is connected
+void sendNimBLEData(const String& data) {
+  if (deviceConnected && pTxCharacteristic) {
+    pTxCharacteristic->setValue(data.c_str());
+    pTxCharacteristic->notify();
+  }
+}
+
+class MyServerCallbacks: public NimBLEServerCallbacks {
+    void onConnect(NimBLEServer* pServer) {
+        Serial.println("[BLE] client connected.");
+        deviceConnected = true;
+    }
+    void onDisconnect(NimBLEServer* pServer) {
+        Serial.println("[BLE] client disconnected");
+        deviceConnected = false;
+        NimBLEDevice::startAdvertising(); // Restart advertising after disconnect
+        Serial.println("[BLE] advertising restarted");
+    }
 };
 
 void setup() {
   Serial.begin(115200);
+  Serial.println("ESP32 Soil Sensor starting...");
   Serial1.begin(9600, SERIAL_8N1, RXD2, TXD2);
   pinMode(RS485_DE, OUTPUT);
   pinMode(RS485_RE, OUTPUT);
@@ -41,19 +58,23 @@ void setup() {
   digitalWrite(RS485_RE, LOW); // Receive mode
   delay(1000);
 
-  // BLE UART setup
-  BLEDevice::init("ESP32-SoilSensor");
-  BLEServer *pServer = BLEDevice::createServer();
+  // NimBLE UART setup
+  NimBLEDevice::init("ESP32-SoilSensor");
+  NimBLEServer *pServer = NimBLEDevice::createServer();
   pServer->setCallbacks(new MyServerCallbacks());
-  BLEService *pService = pServer->createService(SERVICE_UUID);
+  NimBLEService *pService = pServer->createService(SERVICE_UUID);
   pTxCharacteristic = pService->createCharacteristic(
     CHARACTERISTIC_UUID_TX,
     NIMBLE_PROPERTY::NOTIFY
   );
-  pTxCharacteristic->addDescriptor(new NimBLE2904());
+  //pTxCharacteristic->addDescriptor(new NimBLE2904());
   pService->start();
-  BLEDevice::startAdvertising();
-  Serial.println("BLE UART started");
+  NimBLEAdvertising *pAdvertising = NimBLEDevice::getAdvertising();
+  pAdvertising->addServiceUUID(SERVICE_UUID);
+  // pAdvertising->setScanResponse(true); // Not available in NimBLEAdvertising
+  //NimBLEDevice::startAdvertising();
+  pAdvertising->start();
+  Serial.println("NimBLE UART started, advertising...");
 }
 
 int readModbusValue(const byte* cmd, int scale = 1, int offset = 3) {
@@ -156,14 +177,13 @@ void readHumidityAndTemperature() {
 void loop() {
   // Arrays to hold 10 readings for each parameter
   float humidityArr[10], temperatureArr[10];
-  float conductivityArr[10], tdsArr[10], salinityArr[10];
-  float phArr[10], nitroArr[10], phosArr[10], potaArr[10];
-
+  // float conductivityArr[10], tdsArr[10], salinityArr[10];
+  // float phArr[10], nitroArr[10], phosArr[10], potaArr[10];
 
   // Take 10 readings
+  float humidity = 0.0, temperature = 0.0;
   for (int i = 0; i < 10; i++) {
     // --- Humidity & Temperature ---
-    float humidity = 0, temperature = 0;
     {
       // Clear Serial1 buffer
       while (Serial1.available()) Serial1.read();
@@ -194,7 +214,7 @@ void loop() {
     temperatureArr[i] = temperature;
 
     // --- Conductivity ---
-    float conductivity = 0;
+    /*
     {
       while (Serial1.available()) Serial1.read();
       digitalWrite(RS485_DE, HIGH);
@@ -322,26 +342,23 @@ void loop() {
     }
 
     delay(100); // Small delay between readings
+    */
   }
-  
-  // Clear the serial monitor screen
-  Serial.write(27); Serial.print("[2J");
-  Serial.write(27); Serial.print("[H");
 
   // Calculate averages
   float humiditySum = 0, temperatureSum = 0;
-  float conductivitySum = 0, tdsSum = 0, salinitySum = 0;
-  float phSum = 0, nitroSum = 0, phosSum = 0, potaSum = 0;
+  // float conductivitySum = 0, tdsSum = 0, salinitySum = 0;
+  // float phSum = 0, nitroSum = 0, phosSum = 0, potaSum = 0;
   for (int i = 0; i < 10; i++) {
     humiditySum += humidityArr[i];
     temperatureSum += temperatureArr[i];
-    conductivitySum += conductivityArr[i];
-    tdsSum += tdsArr[i];
-    salinitySum += salinityArr[i];
-    phSum += phArr[i];
-    nitroSum += nitroArr[i];
-    phosSum += phosArr[i];
-    potaSum += potaArr[i];
+    // conductivitySum += conductivityArr[i];
+    // tdsSum += tdsArr[i];
+    // salinitySum += salinityArr[i];
+    // phSum += phArr[i];
+    // nitroSum += nitroArr[i];
+    // phosSum += phosArr[i];
+    // potaSum += potaArr[i];
   }
 
   Serial.print("Humidity (avg) = ");
@@ -351,7 +368,7 @@ void loop() {
   Serial.print("Temperature (avg) = ");
   Serial.print(temperatureSum / 10.0, 1);
   Serial.println(" deg.C");
-
+  /*
   Serial.print("Conductivity (avg) = ");
   Serial.print(conductivitySum / 10.0, 1);
   Serial.println(" uS/cm");
@@ -381,4 +398,9 @@ void loop() {
 
   Serial.println();
   delay(2000); // Wait before next set of averages
+  */
+
+  // Debug print to confirm loop is running
+  Serial.println("Loop running...");
+  delay(1000);
 }
